@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "test-project"
+version = "0.1.0"
+description = ""
+authors = ["torinunim <myeongd@icloud.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+python-dotenv = "^1.0.1"
+openai = "^1.42.0"
+streamlit = "^1.38.0"
+langchain = "^0.2.15"
+langchain-openai = "^0.1.23"
+google-search-results = "^2.4.2"
+langchain-community = "^0.2.14"
+langchain-core = "^0.2.36"
+chromadb = "^0.5.5"
+chardet = "^5.2.0"
+tiktoken = "^0.7.0"
+pypdf2 = "^3.0.1"
+anthropic = "^0.34.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
