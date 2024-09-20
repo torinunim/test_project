@@ -7,6 +7,8 @@ import tiktoken
 from PyPDF2 import PdfReader
 from anthropic import Anthropic
 import io
+import pyperclip
+import time
 
 # 환경변수 로드
 load_dotenv()
@@ -79,54 +81,76 @@ def summarize_text(text: str, max_words: int, summary_type: str) -> str:
     if summary_type == "summary":
         instruction_message = f"""
         [Instructions]
-        {text_category} 분야 요약 전문가로서, 사용자가 제공한 내용의 간결한 요약을 작성해주세요. 
+        As an expert summarizer in the field of {text_category}, please provide a concise summary of the content provided by the user.
         
         [Context]
-        1. 전문 용어를 사용
-        2. 규제 및 법적 요구사항에 대하여 정확한 단어 사용
-        3. 고객 관점
-        4. 제품 및 서비스의 특성
-        위의 4가지를 고려하세요.
-        
+        Consider the following four aspects:
+
+        1. Use of technical terminology
+        2. Accurate wording regarding regulations and legal requirements
+        3. Customer perspective
+        4. Characteristics of products and services
+
         [Key considerations]
-        1. {max_sentences}문장으로 간결하게 요약하세요.
-        2. '-습니다'체를 사용하세요.
-        3. 반드시 문서에 있는 내용만을 요약하세요.
+        1. Summarize concisely in {max_sentences} sentences.
+        2. Use polite, formal language (equivalent to the Korean "-습니다" style).
+        3. Summarize only the content present in the document.
+        4. Ensure that the core content of the original text is preserved.
+        5. Do not include information not explicitly mentioned in the source material.
+
+        [Important]
+        The final output must be in Korean.
         """
     elif summary_type == "document summary":
         instruction_message = f"""
         [Instructions]
-        문서 요약 전문가로서, {text_category}의 주어진 문서의 주요 내용을 포괄적으로 요약해주세요. 
+        As a document summarization expert, please provide a comprehensive summary of the main content of the given document in the field of {text_category}.
         
         [Context]
-        요약은 문서의 페이지 수와 정보의 양에 따라 적절하게 작성하되, 문서의 구조와 핵심 주장, 중요한 세부사항을 포함해야 합니다.
-        1. 전문 용어를 사용
-        2. 규제 및 법적 요구사항에 대하여 정확한 단어 사용
-        3. 고객 관점
-        4. 제품 및 서비스의 특성
-        위의 4가지를 정확하게 지키세요.
+        The summary should be appropriately crafted based on the number of pages and the amount of information in the document, and must include the document's structure, key arguments, and important details.
+        Strictly adhere to the following four aspects:
+
+        1. Use of technical terminology
+        2. Accurate wording regarding regulations and legal requirements
+        3. Customer perspective
+        4. Characteristics of products and services
 
         [Key considerations]
-        1. {max_sentences_doc}문장으로 간결하게 요약하세요.
-        2. '-습니다'체를 사용하세요.
-        3. 반드시 문서에 있는 내용만을 요약하세요.
+        1. Summarize concisely in {max_sentences_doc} sentences.
+        2. Use polite, formal language (equivalent to the Korean "-습니다" style).
+        3. Summarize only the content present in the document.
+        4. Ensure that the core content of the original text is preserved.
+        5. Do not include information not explicitly mentioned in the source material.
+
+        [Important]
+        The final output must be in Korean.
         """
     elif summary_type == "bullet point summary":
         instruction_message = f"""
-        {text_category}전문 정보 구조화 전문가로서, 주어진 내용의 핵심을 bullet point 형식으로 요약해주세요. 
-        총 {num_points}개의 bullet point로 작성하되, 각 포인트는 간결하고 명확해야 하며, 전체 내용의 주요 아이디어를 포괄해야 합니다.
-        각 bullet point는 '-'로 시작하고, 텍스트의 분량에 맞도록 포인트의 개수를 적절히 선택해서 요약하세요.
-        - '-습니다'체를 사용합니다.
-        1. 전문 용어를 사용
-        2. 규제 및 법적 요구사항에 대하여 정확한 단어 사용
-        3. 고객 관점
-        4. 제품 및 서비스의 특성
-        위의 4가지를 정확하게 지키세요.
+        [Instructions]
+        As a specialist in structuring information for {text_category}, please summarize the key points of the given content in //bullet point// format.
+        
+        [Context]
+        Strictly adhere to the following four aspects:
+
+        1. Use of technical terminology
+        2. Accurate wording regarding regulations and legal requirements
+        3. Customer perspective
+        4. Characteristics of products and services
+
+        [Key considerations]
+        1. Create a total of {num_points} bullet points.
+        2. Each point should be concise and clear, encompassing the main ideas of the entire content.
+        3. Start each bullet point with '-', and choose an appropriate number of points to summarize based on the amount of text.
+        4. End each bullet point with a nominal ending.
+
+        [Important]
+        The final output must be in Korean.
         """
     else:
         instruction_message = f"""
-        전문 요약가로서, 주어진 내용을 {max_words}단어 이내로 요약해주세요. 
-        요약은 원문의 핵심을 정확하게 전달해야 합니다.
+        As a professional summarizer, please summarize the given content within {max_words} words.
+The summary should accurately convey the essence of the original text.
         """
 
     messages = [
@@ -196,11 +220,11 @@ def review_summary(original_text: str, summary: str, category: str) -> str:
         print(error_message)
         return error_message
     
-# 사이드바 페이지 선택
+
 page = st.sidebar.radio("기능 선택", ['텍스트(문장, 문단) 요약', '문서 요약', 'bullet point 요약', '검수'])
 
-# 디버그 모드 추가
-debug_mode = st.sidebar.checkbox("디버그 모드")
+# # 디버그 모드 추가
+# debug_mode = st.sidebar.checkbox("디버그 모드")
 
 if page == '텍스트(문장, 문단) 요약':
     st.title("텍스트 요약기")
@@ -208,13 +232,21 @@ if page == '텍스트(문장, 문단) 요약':
     "텍스트의 카테고리",
     ("보험", "은행", "카드", "증권"), index=0)
     user_input = st.text_area("여기에 요약할 텍스트를 입력하세요:", height=300)
+    input_tokens = num_tokens_from_string(user_input)
+    st.write(f"입력 텍스트 길이: {input_tokens} 토큰")
     max_sentences = st.sidebar.number_input("요약할 최대 문장 수 설정", min_value=1, max_value=10, value=3)
     st.sidebar.write("1~10문장 설정 가능")
     if st.button("요약하기"):
         if user_input:
-            summary = summarize_long_text(user_input, max_sentences, "summary")
+            with st.spinner('요약 중...'):
+                summary = summarize_long_text(user_input, max_sentences, "summary")
             st.write("요약 결과:")
             st.write(summary)
+            summary_tokens = num_tokens_from_string(summary)
+            st.write(f"요약 길이: {summary_tokens} 토큰")
+            if st.button("결과 복사"):
+                pyperclip.copy(summary)
+                st.success("클립보드에 복사되었습니다!")
         else:
             st.write("텍스트를 입력해주세요.")
 
@@ -229,14 +261,21 @@ elif page == '문서 요약':
     if st.button("문서 요약하기"):
         if doc_file is not None:
             try:
-                file_content = doc_file.read()
-                text_content = auto_decode(file_content)
-                if debug_mode:
-                    st.write("디코딩된 텍스트 (처음 500자):")
-                    st.write(text_content[:500])
-                summary = summarize_long_text(text_content, max_sentences_doc, "document summary")
+                with st.spinner('문서 요약 중...'):
+                    file_content = doc_file.read()
+                    text_content = auto_decode(file_content)
+                    if debug_mode:
+                        st.write("디코딩된 텍스트 (처음 500자):")
+                        st.write(text_content[:500])
+                        st.write(f"전체 텍스트 토큰 수: {num_tokens_from_string(text_content)}")
+                    summary = summarize_long_text(text_content, max_sentences_doc, "document summary")
                 st.write("문서 요약 결과:")
                 st.write(summary)
+                summary_tokens = num_tokens_from_string(summary)
+                st.write(f"요약 길이: {summary_tokens} 토큰")
+                if st.button("결과 복사"):
+                    pyperclip.copy(summary)
+                    st.success("클립보드에 복사되었습니다!")
             except Exception as e:
                 st.error(f"오류가 발생했습니다: {str(e)}")
                 if debug_mode:
@@ -250,17 +289,25 @@ elif page == 'bullet point 요약':
     "텍스트의 카테고리",
     ("보험", "은행", "카드", "증권"), index=0)
     user_input_bullet = st.text_area("여기에 요약할 텍스트를 입력하세요:", height=300)
+    input_tokens = num_tokens_from_string(user_input_bullet)
+    st.write(f"입력 텍스트 길이: {input_tokens} 토큰")
     num_points = st.sidebar.number_input("생성할 bullet point 수 설정", min_value=3, max_value=10, value=5)
     st.sidebar.write("3~10문장 설정 가능")
     if st.button("Bullet Point 요약하기"):
         if user_input_bullet:
-            summary = summarize_long_text(user_input_bullet, num_points, "bullet point summary")
+            with st.spinner('Bullet Point 요약 중...'):
+                summary = summarize_long_text(user_input_bullet, num_points, "bullet point summary")
             st.write("Bullet Point 요약 결과:")
             st.write(summary)
+            summary_tokens = num_tokens_from_string(summary)
+            st.write(f"요약 길이: {summary_tokens} 토큰")
+            if st.button("결과 복사"):
+                pyperclip.copy(summary)
+                st.success("클립보드에 복사되었습니다!")
         else:
             st.write("텍스트를 입력해주세요.")
             
-# 검수 기능 추가
+# 검수 기능
 elif page == '검수':
     st.title("요약 검수")
     text_category = st.sidebar.selectbox(
@@ -273,16 +320,20 @@ elif page == '검수':
     if st.button("검수하기"):
         if original_doc is not None and summary_text:
             try:
-                file_content = original_doc.read()
-                original_text = auto_decode(file_content)
-                
-                if debug_mode:
-                    st.write("원본 문서 내용 (처음 500자):")
-                    st.write(original_text[:500])
-                
-                review_result = review_summary(original_text, summary_text, text_category)
+                with st.spinner('검수 중...'):
+                    file_content = original_doc.read()
+                    original_text = auto_decode(file_content)
+                    
+                    if debug_mode:
+                        st.write("원본 문서 내용 (처음 500자):")
+                        st.write(original_text[:500])
+                    
+                    review_result = review_summary(original_text, summary_text, text_category)
                 st.write("검수 결과:")
                 st.write(review_result)
+                if st.button("결과 복사"):
+                    pyperclip.copy(review_result)
+                    st.success("클립보드에 복사되었습니다!")
             except Exception as e:
                 st.error(f"오류가 발생했습니다: {str(e)}")
                 if debug_mode:
