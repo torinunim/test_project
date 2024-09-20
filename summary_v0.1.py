@@ -141,8 +141,8 @@ def summarize_text(text: str, max_words: int, summary_type: str) -> str:
         [Key considerations]
         1. Create a total of {num_points} bullet points.
         2. Each point should be concise and clear, encompassing the main ideas of the entire content.
-        3. Start each bullet point with '-', and choose an appropriate number of points to summarize based on the amount of text.
-        4. End each bullet point with a nominal ending.
+        3. Start each bullet point with '-'
+        4. 명사형 종결어미인 '-ㅁ' 어미를 사용합니다.
 
         [Important]
         The final output must be in Korean.
