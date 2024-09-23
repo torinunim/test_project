@@ -18,7 +18,6 @@ client = OpenAI()
 
 anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
 
-
 def auto_decode(file_content):
     # PDF 파일 처리
     if file_content.startswith(b'%PDF'):
@@ -223,9 +222,6 @@ def review_summary(original_text: str, summary: str, category: str) -> str:
 
 page = st.sidebar.radio("기능 선택", ['텍스트(문장, 문단) 요약', '문서 요약', 'bullet point 요약', '검수'])
 
-# # 디버그 모드 추가
-# debug_mode = st.sidebar.checkbox("디버그 모드")
-
 if page == '텍스트(문장, 문단) 요약':
     st.title("텍스트 요약기")
     text_category = st.sidebar.selectbox(
@@ -264,10 +260,6 @@ elif page == '문서 요약':
                 with st.spinner('문서 요약 중...'):
                     file_content = doc_file.read()
                     text_content = auto_decode(file_content)
-                    if debug_mode:
-                        st.write("디코딩된 텍스트 (처음 500자):")
-                        st.write(text_content[:500])
-                        st.write(f"전체 텍스트 토큰 수: {num_tokens_from_string(text_content)}")
                     summary = summarize_long_text(text_content, max_sentences_doc, "document summary")
                 st.write("문서 요약 결과:")
                 st.write(summary)
@@ -278,8 +270,6 @@ elif page == '문서 요약':
                     st.success("클립보드에 복사되었습니다!")
             except Exception as e:
                 st.error(f"오류가 발생했습니다: {str(e)}")
-                if debug_mode:
-                    st.exception(e)
         else:
             st.write("문서 파일을 업로드 해주세요.")
 
@@ -324,10 +314,6 @@ elif page == '검수':
                     file_content = original_doc.read()
                     original_text = auto_decode(file_content)
                     
-                    if debug_mode:
-                        st.write("원본 문서 내용 (처음 500자):")
-                        st.write(original_text[:500])
-                    
                     review_result = review_summary(original_text, summary_text, text_category)
                 st.write("검수 결과:")
                 st.write(review_result)
@@ -336,7 +322,5 @@ elif page == '검수':
                     st.success("클립보드에 복사되었습니다!")
             except Exception as e:
                 st.error(f"오류가 발생했습니다: {str(e)}")
-                if debug_mode:
-                    st.exception(e)
         else:
             st.write("원본 문서와 요약된 내용을 모두 입력해주세요.")
