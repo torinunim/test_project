@@ -1,14 +1,11 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
-import chardet
 import tiktoken
-from PyPDF2 import PdfReader
 from anthropic import Anthropic
-import io
-import pyperclip
-import time
+import json
 
 # 환경변수 로드
 load_dotenv()
@@ -17,33 +14,6 @@ load_dotenv()
 client = OpenAI()
 
 anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
-
-def auto_decode(file_content):
-    # PDF 파일 처리
-    if file_content.startswith(b'%PDF'):
-        pdf_file = io.BytesIO(file_content)
-        pdf_reader = PdfReader(pdf_file)
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text()
-        return text
-
-    # 다른 형식의 파일 처리 (기존 코드)
-    result = chardet.detect(file_content)
-    detected_encoding = result['encoding']
-    
-    if not detected_encoding:
-        detected_encoding = 'utf-8'
-    
-    common_encodings = ['utf-8', 'euc-kr', 'cp949', 'iso-8859-1']
-    
-    for encoding in [detected_encoding] + common_encodings:
-        try:
-            return file_content.decode(encoding)
-        except UnicodeDecodeError:
-            continue
-    
-    raise UnicodeDecodeError("Failed to decode with any encoding")
 
 def num_tokens_from_string(string: str, encoding_name: str = "cl100k_base") -> int:
     encoding = tiktoken.get_encoding(encoding_name)
@@ -92,30 +62,6 @@ def summarize_text(text: str, max_words: int, summary_type: str) -> str:
 
         [Key considerations]
         1. Summarize concisely in {max_sentences} sentences.
-        2. Use polite, formal language (equivalent to the Korean "-습니다" style).
-        3. Summarize only the content present in the document.
-        4. Ensure that the core content of the original text is preserved.
-        5. Do not include information not explicitly mentioned in the source material.
-
-        [Important]
-        The final output must be in Korean.
-        """
-    elif summary_type == "document summary":
-        instruction_message = f"""
-        [Instructions]
-        As a document summarization expert, please provide a comprehensive summary of the main content of the given document in the field of {text_category}.
-        
-        [Context]
-        The summary should be appropriately crafted based on the number of pages and the amount of information in the document, and must include the document's structure, key arguments, and important details.
-        Strictly adhere to the following four aspects:
-
-        1. Use of technical terminology
-        2. Accurate wording regarding regulations and legal requirements
-        3. Customer perspective
-        4. Characteristics of products and services
-
-        [Key considerations]
-        1. Summarize concisely in {max_sentences_doc} sentences.
         2. Use polite, formal language (equivalent to the Korean "-습니다" style).
         3. Summarize only the content present in the document.
         4. Ensure that the core content of the original text is preserved.
@@ -218,9 +164,27 @@ def review_summary(original_text: str, summary: str, category: str) -> str:
         error_message = f"검수 중 오류가 발생했습니다: {str(e)}"
         print(error_message)
         return error_message
-    
 
-page = st.sidebar.radio("기능 선택", ['텍스트(문장, 문단) 요약', '문서 요약', 'bullet point 요약', '검수'])
+def copy_button(text, key):
+    escaped_text = json.dumps(text)
+    components.html(
+        f"""
+        <script>
+        function copyToClipboard_{key}() {{
+            const text = {escaped_text};
+            navigator.clipboard.writeText(text).then(function() {{
+                alert("클립보드에 복사되었습니다!");
+            }}, function() {{
+                alert("복사에 실패했습니다. 다시 시도해주세요.");
+            }});
+        }}
+        </script>
+        <button onclick="copyToClipboard_{key}()">결과 복사</button>
+        """,
+        height=50
+    )
+
+page = st.sidebar.radio("기능 선택", ['텍스트(문장, 문단) 요약', 'bullet point 요약', '검수'])
 
 if page == '텍스트(문장, 문단) 요약':
     st.title("텍스트 요약기")
@@ -240,38 +204,9 @@ if page == '텍스트(문장, 문단) 요약':
             st.write(summary)
             summary_tokens = num_tokens_from_string(summary)
             st.write(f"요약 길이: {summary_tokens} 토큰")
-            if st.button("결과 복사"):
-                pyperclip.copy(summary)
-                st.success("클립보드에 복사되었습니다!")
+            copy_button(summary, "summary")
         else:
             st.write("텍스트를 입력해주세요.")
-
-elif page == '문서 요약':
-    st.title("문서 요약")
-    text_category = st.sidebar.selectbox(
-    "텍스트의 카테고리",
-    ("보험", "은행", "카드", "증권"), index=0)
-    doc_file = st.file_uploader("문서를 업로드하세요", type=['pdf', 'docx', 'txt'])
-    max_sentences_doc = st.sidebar.number_input("문서 요약의 최대 문장 수 설정", min_value=1, max_value=20, value=5)
-    st.sidebar.write("1~20문장 설정 가능")
-    if st.button("문서 요약하기"):
-        if doc_file is not None:
-            try:
-                with st.spinner('문서 요약 중...'):
-                    file_content = doc_file.read()
-                    text_content = auto_decode(file_content)
-                    summary = summarize_long_text(text_content, max_sentences_doc, "document summary")
-                st.write("문서 요약 결과:")
-                st.write(summary)
-                summary_tokens = num_tokens_from_string(summary)
-                st.write(f"요약 길이: {summary_tokens} 토큰")
-                if st.button("결과 복사"):
-                    pyperclip.copy(summary)
-                    st.success("클립보드에 복사되었습니다!")
-            except Exception as e:
-                st.error(f"오류가 발생했습니다: {str(e)}")
-        else:
-            st.write("문서 파일을 업로드 해주세요.")
 
 elif page == 'bullet point 요약':
     st.title("Bullet Point 요약")
@@ -291,9 +226,7 @@ elif page == 'bullet point 요약':
             st.write(summary)
             summary_tokens = num_tokens_from_string(summary)
             st.write(f"요약 길이: {summary_tokens} 토큰")
-            if st.button("결과 복사"):
-                pyperclip.copy(summary)
-                st.success("클립보드에 복사되었습니다!")
+            copy_button(summary, "bullet_summary")
         else:
             st.write("텍스트를 입력해주세요.")
             
@@ -304,23 +237,21 @@ elif page == '검수':
     "텍스트의 카테고리",
     ("보험", "은행", "카드", "증권"), index=0)
     
-    original_doc = st.file_uploader("원본 문서를 업로드하세요 (PDF)", type=['pdf'])
+    original_text = st.text_area("원본 텍스트를 입력하세요:", height=500)
+    char_count = len(original_text)
+    st.write(f"원본 텍스트 길이: {char_count} 글자")
+    
     summary_text = st.text_area("요약된 내용을 입력하세요:", height=200)
     
     if st.button("검수하기"):
-        if original_doc is not None and summary_text:
+        if original_text and summary_text:
             try:
                 with st.spinner('검수 중...'):
-                    file_content = original_doc.read()
-                    original_text = auto_decode(file_content)
-                    
                     review_result = review_summary(original_text, summary_text, text_category)
                 st.write("검수 결과:")
                 st.write(review_result)
-                if st.button("결과 복사"):
-                    pyperclip.copy(review_result)
-                    st.success("클립보드에 복사되었습니다!")
+                copy_button(review_result, "review")
             except Exception as e:
                 st.error(f"오류가 발생했습니다: {str(e)}")
         else:
-            st.write("원본 문서와 요약된 내용을 모두 입력해주세요.")
+            st.write("원본 텍스트와 요약된 내용을 모두 입력해주세요.")
